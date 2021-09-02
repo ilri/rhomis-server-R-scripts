@@ -34,9 +34,10 @@
 
 #' Loading the virtual environment library
 library(renv, warn.conflicts = F)
+
 # Setup for interactive script running  -------------------------------------------------------------------
 
-stop(interactive())
+#stop(interactive())
 
 
 # Checking if R running from GUI
@@ -53,30 +54,30 @@ if (interactive()){
   opt$formName <- "project_1_form_1"
 }
 
-
 # Setup for running from command line -------------------------------------
 # Checking if script has been run from the command line 
 if (!interactive()){
-  
+  # Directory setup in the .Rprofile
   # Identifying the file path to this script
   
-  # Arguments passed to the script
+  #Arguments passed to the script
   initial.options <- commandArgs(trailingOnly = FALSE)
   file_option <- initial.options[grep("--file",initial.options)]
   file_option <- gsub("--file=", "",file_option, fixed=T)
-  
-  
+
+
   #project_path <- gsub("/R/process_data.R", "",file_option, fixed=T)
   project_path <- gsub("R/process_data.R", "",file_option, fixed=T)
-  
-  
+
+
   #Making sure scripts can deal with running from within the project directory
-  
-  if (grepl("home/",project_path==F)){
-    
+
+  if (grepl("home/",project_path==F) | project_path==""){
+
     project_path <- paste0("./",project_path)
   }
   
+  print(project_path)
   
   
   #' Ensures that all warnings are 
@@ -88,7 +89,6 @@ if (!interactive()){
   # Loading virtual environment
   #loading .env file
   readRenviron(paste0(project_path,".env"))
-  
   
   renv::load(project_path)
   
