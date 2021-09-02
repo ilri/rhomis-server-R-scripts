@@ -36,6 +36,9 @@
 library(renv, warn.conflicts = F)
 # Setup for interactive script running  -------------------------------------------------------------------
 
+stop(interactive())
+
+
 # Checking if R running from GUI
 if (interactive()){
   renv::load()
@@ -62,18 +65,24 @@ if (!interactive()){
   file_option <- initial.options[grep("--file",initial.options)]
   file_option <- gsub("--file=", "",file_option, fixed=T)
   
-  print(file_option)
   
-  project_path <- gsub("/R/process_data.R", "",file_option, fixed=T)
-  project_path <- gsub("R/process_data.R", "",project_path, fixed=T)
+  #project_path <- gsub("/R/process_data.R", "",file_option, fixed=T)
+  project_path <- gsub("R/process_data.R", "",file_option, fixed=T)
   
   
   #Making sure scripts can deal with running from within the project directory
-  project_path <- paste0("./",project_path)
+  
+  if (grepl("home/",project_path==F)){
+    
+    project_path <- paste0("./",project_path)
+  }
+  
+  
   
   #' Ensures that all warnings are 
   #' send to stdout rather than stderr
-  #sink(stdout(), type="message")
+  sink(stdout(), type="message")
+  
   
   
   # Loading virtual environment
