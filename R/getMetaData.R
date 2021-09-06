@@ -156,6 +156,8 @@ forms <- forms[c("version", "enketoId", "publishedAt", "projectId", "xmlFormId",
 
 
 database_connection <- rhomis::connect_to_db(collection = "metaData")
+# Removing all metadata
+database_connection$remove('{}')
 
 
 projects_json <- jsonlite::toJSON(projects, pretty=T, na="null")
@@ -167,6 +169,8 @@ metadata_json <- paste0('{"projects":',projects_json,',"forms":',forms_json,'}')
 metadata_json <- gsub("\n","",metadata_json, fixed=T)
 metadata_json <- gsub('\\"','"',metadata_json, fixed=T)
 metadata_json <- gsub('"\\','"',metadata_json, fixed=T)
+
+
 
 database_connection$insert(metadata_json)
 
