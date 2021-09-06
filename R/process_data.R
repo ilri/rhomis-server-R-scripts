@@ -8,7 +8,7 @@
 #' script from the command line. If running from the command line you will need to 
 #' enter the command: 
 #' 
-#' "Rscript path/to/file.R --arg1 firstargument --arg2 second argument ...
+#' "Rscript path/to/file.R --arg1 firstargument --arg2 second argument ..."
 #' 
 #' If you would like guidance on how to run this script from the command line, please
 #' enter:
@@ -403,7 +403,10 @@ adding_project_to_list(database = "rhomis",
 
 # survey_builder_metadata <- get_survey_builder_projects(survey_builder_url,
 #                                                        survey_builder_access_token)
-# 
+#
+
+#metadata <- data.frame(list())
+
 # add_data_to_project_list(data = survey_builder_metadata,
 #                          collection = "metaData",
 #                          database = "rhomis",
