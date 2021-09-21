@@ -50,8 +50,10 @@ if (interactive()){
   # Setting options for script run interactively.
   # These should be set manually if you are running the script interactively
   opt <- list()
-  opt$projectName <- "demo_project_1"
-  opt$formName <- "project_1_form_1"
+  opt$projectName <- "test_project_from_node"
+  opt$formName <- "RHoMIS 1.6"
+  opt$dataBase <- "rhomis-data-dev"
+  
 }
 
 # Setup for running from command line -------------------------------------
@@ -107,6 +109,11 @@ if (!interactive()){
                           type = "character",
                           # default = "world",
                           help="The name of the form you would like to process on ODK central",
+                          metavar="character"),
+    optparse::make_option(opt_str = c("--dataBase"),
+                          type = "character",
+                          # default = "world",
+                          help="The database you would like to write to",
                           metavar="character")
   )
   
@@ -147,11 +154,11 @@ central_url <- paste0("https://",central_url)
 # Accessing the environemnt variables
 central_email <- Sys.getenv("CENTRALEMAIL")
 central_password <- Sys.getenv("CENTRALPASSWORD")
-
-
-survey_builder_url <- Sys.getenv("SURVEYBUILDERURL")
-survey_builder_url <- paste0("https://",survey_builder_url)
-survey_builder_access_token <- Sys.getenv("SURVEYBUILDERACCESSTOKEN")
+ 
+ 
+# survey_builder_url <- Sys.getenv("SURVEYBUILDERURL")
+# survey_builder_url <- paste0("https://",survey_builder_url)
+# survey_builder_access_token <- Sys.getenv("SURVEYBUILDERACCESSTOKEN")
 
 # Test example ------------------------------------------------------------
 # Write a file containing two arguments passed vis 
@@ -180,19 +187,44 @@ forms <- get_forms(central_url,
                    projectID)
 formID <- forms$xmlFormId[forms$name==form_name]
 
+
+# Get form and extract metadata
+central_form <- rhomis::get_xls_form(
+  central_url=central_url,
+  central_email=central_email,
+  central_password=central_password,
+  projectID=projectID,
+  formID=formID,
+  version = 1
+)
+
+modules <- unique(central_form["module_name"])
+modules <- tolower(modules)
+
+
+
+
 rhomis_data <- get_submission_data(central_url,
                                    central_email,
                                    central_password,
                                    projectID,
                                    formID )
 
+if (sum(colnames(rhomis_data)=="deviceid")>1){
+  column_to_keep <- which(colnames(rhomis_data)=="deviceid" & colSums(is.na(rhomis_data))==0)
+  column_to_remove <- which(colnames(rhomis_data)=="deviceid" & colSums(is.na(rhomis_data))>0)
+  
+  rhomis_data <- rhomis_data[-column_to_remove]
+  
+}
+
 ## Cleaning Data and Extracting All Units/Column names present in the survey
-rhomis_data <-rhomis_data %>%
-  remove_extra_central_columns() %>%
+  rhomis_data <-rhomis_data %>%
+    remove_extra_central_columns() %>%
   convert_all_columns_to_lower_case()
 
 
-all_new_values <- extract_units_data_frames(rhomis_data)
+# all_new_values <- extract_units_data_frames(rhomis_data)
 
 ## Household Information
 hh_size_members <- calculate_household_size_members(rhomis_data)
@@ -362,7 +394,7 @@ indicator_data <- tibble::as_tibble(cbind(indicator_data,food_security,hdds_data
 
 add_data_to_project_list(data = rhomis_data,
                          collection = "processedData",
-                         database = "rhomis",
+                         database = opt$dataBase,
                          url = "mongodb://localhost",
                          overwrite=T,
                          projectID=project_name,
@@ -370,7 +402,7 @@ add_data_to_project_list(data = rhomis_data,
 
 add_data_to_project_list(data = indicator_data,
                          collection = "indicatorData",
-                         database = "rhomis",
+                         database = opt$dataBase,
                          url = "mongodb://localhost",
                          overwrite=T,
                          projectID=project_name,
@@ -379,7 +411,7 @@ add_data_to_project_list(data = indicator_data,
 crop_harvested <- map_to_wide_format(rhomis_data,"crop_name","crop_harvest_kg_per_year",types = "num")
 add_data_to_project_list(data = crop_harvested$crop_harvest_kg_per_year,
                          collection = "cropData",
-                         database = "rhomis",
+                         database = opt$dataBase,
                          url = "mongodb://localhost",
                          overwrite=T,
                          projectID=project_name,
@@ -388,14 +420,14 @@ add_data_to_project_list(data = crop_harvested$crop_harvest_kg_per_year,
 livestock_sold <- map_to_wide_format(rhomis_data,"livestock_name","livestock_sold",types = "num")
 add_data_to_project_list(data = livestock_sold$livestock_sold,
                          collection = "livestockData",
-                         database = "rhomis",
+                         database = opt$dataBase,
                          url = "mongodb://localhost",
                          overwrite=T,
                          projectID=project_name,
                          formID=form_name)
 
 
-adding_project_to_list(database = "rhomis",
+adding_project_to_list(database = opt$dataBase,
                        url = "mongodb://localhost",
                        projectID=project_name,
                        formID=form_name)
