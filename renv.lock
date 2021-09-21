@@ -469,12 +469,12 @@
       "Version": "0.1.0",
       "Source": "GitHub",
       "RemoteType": "github",
-      "RemoteHost": "api.github.com",
-      "RemoteRepo": "rhomis-R-package",
       "RemoteUsername": "l-gorman",
+      "RemoteRepo": "rhomis-R-package",
       "RemoteRef": "HEAD",
-      "RemoteSha": "e820824c908b260d3bd330cd1393862267c4e6f9",
-      "Hash": "9a815047d108fa43c3dfa121816a4fb9"
+      "RemoteSha": "362ab7c9bb14747fd7a88f3fbc0b477f7855b87d",
+      "RemoteHost": "api.github.com",
+      "Hash": "20a7255e185f4291de23ce7b9f882e73"
     },
     "rlang": {
       "Package": "rlang",
