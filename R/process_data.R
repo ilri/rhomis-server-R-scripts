@@ -198,9 +198,96 @@ central_form <- rhomis::get_xls_form(
   version = 1
 )
 
-modules <- unique(central_form["module_name"])
+### Identifying the modules uses in the survey
+module_names <- c("metadata", 
+                 "introduction", 
+                 "demographics", 
+                 "land_use",
+                 "gender_roles", 
+                 "crops",
+                 "crop_intensification",
+                 "crop_intensification_practices",
+                 "livestock",
+                 "livestock_intensification",
+                 "wildfoods",
+                 "food_security",
+                 "hdds",
+                 "debts_and_aid",
+                 "off_farm_incomes",
+                 "spending",
+                 "ppi",
+                 "phone")
+
+module_types <- c("core", 
+                 "core", 
+                 "core", 
+                 "core",
+                 "core", 
+                 "core",
+                 "core",
+                 "core",
+                 "core",
+                 "core",
+                 "core",
+                 "core",
+                 "core",
+                 "core",
+                 "core",
+                 "core",
+                 "core",
+                 "core")
+
+
+processed <- c("processed", 
+                  "processed", 
+                  "processed", 
+                  "processed",
+                  "processed", 
+                  "processed",
+                  "processed",
+                  "processed",
+                  "processed",
+                  "processed",
+                  "processed",
+                  "processed",
+                  "processed",
+                  "processed",
+                  "processed",
+                  "processed",
+                  "processed",
+                  "processed")
+
+library(tibble)
+library(dplyr)
+module_data <- tibble::tibble(module_name=module_names,
+                                   module_type= module_types,
+                              processed=processed
+                                   )
+
+
+
+modules <- unique(central_form[["module_name"]])
+modules <- modules[!is.na(modules)]
 modules <- tolower(modules)
 
+
+new_modules <- modules[modules %in% module_data[["module_name"]]==F]
+
+if (length(new_modules)>0)
+{
+  new_module_tibble <- tibble::tibble(module_name=new_modules)
+  new_module_tibble$module_type <- "optional"
+  new_module_tibble$processed <- "unprocessed"
+  
+  modules <- dplyr::bind_rows(module_data,new_module_tibble)
+}
+add_data_to_project_list(data = modules,
+                         collection = "moduleData",
+                         database = opt$dataBase,
+                         url = "mongodb://localhost",
+                         overwrite=T,
+                         projectID=project_name,
+                         formID=form_name)
 
 
 
