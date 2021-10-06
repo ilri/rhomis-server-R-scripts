@@ -86,8 +86,6 @@ if (!interactive()){
   #' send to stdout rather than stderr
   sink(stdout(), type="message")
   
-  
-  
   # Loading virtual environment
   #loading .env file
   readRenviron(paste0(project_path,".env"))
@@ -175,121 +173,55 @@ project_name <- opt$projectName
 form_name <- opt$formName
 
 # Finding project information from the API
-projects <-get_projects(central_url,
-                        central_email,
-                        central_password)
-projectID <- projects$id[projects$name==project_name]
+projectID <- get_project_id_from_name(project_name,
+                                      central_url,
+                                      central_email,
+                                      central_password)
 
-# Finding form information from the API
-forms <- get_forms(central_url,
-                   central_email,
-                   central_password,
-                   projectID)
-formID <- forms$xmlFormId[forms$name==form_name]
-
+#Finding form information from the API
+formID <- get_xml_form_id_from_name(form_name,
+                                    projectID,
+                                    central_url,
+                                    central_email,
+                                    central_password)
 
 # Get form and extract metadata
 central_form <- rhomis::get_xls_form(
-  central_url=central_url,
-  central_email=central_email,
-  central_password=central_password,
-  projectID=projectID,
-  formID=formID,
-  version = 1
+    central_url=central_url,
+    central_email=central_email,
+    central_password=central_password,
+    projectID=projectID,
+    formID=formID,
+    version = 1
 )
 
-### Identifying the modules uses in the survey
-module_names <- c("metadata", 
-                 "introduction", 
-                 "demographics", 
-                 "land_use",
-                 "gender_roles", 
-                 "crops",
-                 "crop_intensification",
-                 "crop_intensification_practices",
-                 "livestock",
-                 "livestock_intensification",
-                 "wildfoods",
-                 "food_security",
-                 "hdds",
-                 "debts_and_aid",
-                 "off_farm_incomes",
-                 "spending",
-                 "ppi",
-                 "phone")
-
-module_types <- c("core", 
-                 "core", 
-                 "core", 
-                 "core",
-                 "core", 
-                 "core",
-                 "core",
-                 "core",
-                 "core",
-                 "core",
-                 "core",
-                 "core",
-                 "core",
-                 "core",
-                 "core",
-                 "core",
-                 "core",
-                 "core")
-
-
-processed <- c("processed", 
-                  "processed", 
-                  "processed", 
-                  "processed",
-                  "processed", 
-                  "processed",
-                  "processed",
-                  "processed",
-                  "processed",
-                  "processed",
-                  "processed",
-                  "processed",
-                  "processed",
-                  "processed",
-                  "processed",
-                  "processed",
-                  "processed",
-                  "processed")
+#### Identifying the modules uses in the survey
 
 library(tibble)
 library(dplyr)
-module_data <- tibble::tibble(module_name=module_names,
-                                   module_type= module_types,
-                              processed=processed
-                                   )
 
+survey_modules <- unique(central_form[["module_name"]])
+survey_modules <- survey_modules[!is.na(survey_modules)]
+survey_modules <- tolower(survey_modules)
 
+new_survey_modules <- survey_modules[survey_modules %in% rhomis::modules[["module_name"]]==F]
 
-modules <- unique(central_form[["module_name"]])
-modules <- modules[!is.na(modules)]
-modules <- tolower(modules)
-
-
-new_modules <- modules[modules %in% module_data[["module_name"]]==F]
-
-if (length(new_modules)>0)
+if (length(new_survey_modules)>0)
 {
-  new_module_tibble <- tibble::tibble(module_name=new_modules)
-  new_module_tibble$module_type <- "optional"
-  new_module_tibble$processed <- "unprocessed"
-  
-  modules <- dplyr::bind_rows(module_data,new_module_tibble)
+    new_module_tibble <- tibble::tibble(module_name=new_survey_modules)
+    new_module_tibble$module_type <- "optional"
+    new_module_tibble$processing_code <- NA
+    new_module_tibble$dependencies <- NA
+
+
+    modules_used <- dplyr::bind_rows( rhomis::modules,new_module_tibble)
 }
-add_data_to_project_list(data = modules,
-                         collection = "moduleData",
+save_data_set_to_db(data = modules_used,
+                         data_type  = "moduleData",
                          database = opt$dataBase,
                          url = "mongodb://localhost",
-                         overwrite=T,
                          projectID=project_name,
                          formID=form_name)
-
-
 
 rhomis_data <- get_submission_data(central_url,
                                    central_email,
@@ -298,243 +230,196 @@ rhomis_data <- get_submission_data(central_url,
                                    formID )
 
 if (sum(colnames(rhomis_data)=="deviceid")>1){
-  column_to_keep <- which(colnames(rhomis_data)=="deviceid" & colSums(is.na(rhomis_data))==0)
-  column_to_remove <- which(colnames(rhomis_data)=="deviceid" & colSums(is.na(rhomis_data))>0)
-  
-  rhomis_data <- rhomis_data[-column_to_remove]
-  
+    column_to_keep <- which(colnames(rhomis_data)=="deviceid" & colSums(is.na(rhomis_data))==0)
+    column_to_remove <- which(colnames(rhomis_data)=="deviceid" & colSums(is.na(rhomis_data))>0)
+
+    rhomis_data <- rhomis_data[-column_to_remove]
+
 }
 
 ## Cleaning Data and Extracting All Units/Column names present in the survey
-  rhomis_data <-rhomis_data %>%
+
+#
+
+rhomis_data <-rhomis_data %>%
     remove_extra_central_columns() %>%
-  convert_all_columns_to_lower_case()
+    convert_all_columns_to_lower_case()
 
 
 # all_new_values <- extract_units_data_frames(rhomis_data)
 
-## Household Information
-hh_size_members <- calculate_household_size_members(rhomis_data)
-hh_size_MAE <- calculate_MAE(rhomis_data)
+indicator_data <- tibble::as_tibble(list(projectName=rep(project_name,nrow(rhomis_data)),
+                                         formName=rep(form_name,nrow(rhomis_data))))
 
+## Demographics
+if("demographics" %in% modules_used$module_name)
+{
+    indicator_data$hh_size_members <- calculate_household_size_members(rhomis_data)
+    indicator_data$hh_size_MAE <- calculate_MAE(rhomis_data)
 
+    indicator_data$household_type <- rhomis_data[["household_type"]]
+    indicator_data$head_education_level <- rhomis_data[["education_level"]]
 
-household_type <- rhomis_data[["household_type"]]
-head_education_level <- rhomis_data[["education_level"]]
-
-## Land Variables
-land_sizes <- land_size_calculation(rhomis_data)
-
+}
+## Land_use
+if("land_use" %in% modules_used$module_name)
+{
+    indicator_data <- dplyr::bind_cols(indicator_data,land_size_calculation(rhomis_data))
+}
 ## Livestock Holdings
-# NOT YET CALCULATED
+# To be changed soon
 
 
 
 #FoodSecMonths
-worst_food_security_month <- rhomis_data[["food_worst_month"]]
-best_food_security_month <- rhomis_data[["food_best_month"]]
+if("food_security" %in% modules_used$module_name)
+{
 
+    indicator_data$worst_food_security_month <- rhomis_data[["food_worst_month"]]
+    indicator_data$best_food_security_month <- rhomis_data[["food_best_month"]]
+    indicator_data <- dplyr::bind_cols(indicator_data,food_security_calculations(rhomis_data))
+
+}
 
 #ppi_score <- ppi_score(rhomis_data, country_code_column = rhomis_data$iso_country_code)
-food_security <- food_security_calculations(rhomis_data)
 
 # HDDS scores
-hdds_data <-  hdds_calc(rhomis_data)
-
+if("food_security" %in% modules_used$module_name)
+{
+    hdds_data <-  hdds_calc(rhomis_data)
+}
 # Crop Calculations
-rhomis_data <- crop_calculations_all(rhomis_data,
-                                     crop_yield_units_all = crop_yield_units$unit,
-                                     crop_yield_unit_conversions_all = crop_yield_units$conversion,
-                                     crop_income_units_all = crop_price_units$unit,
-                                     crop_income_unit_conversions_all = crop_price_units$conversion)
+if ("crops" %in% modules_used$module_name)
+{
+
+
+
+    rhomis_data <- crop_calculations_all(rhomis_data,
+                                         crop_yield_units_all = crop_yield_units$unit,
+                                         crop_yield_unit_conversions_all = crop_yield_units$conversion,
+                                         crop_income_units_all = crop_price_units$unit,
+                                         crop_income_unit_conversions_all = crop_price_units$conversion)
+
+
+    crop_data <- map_to_wide_format(data = rhomis_data,
+                                    name_column = "crop_name",
+                                    column_prefixes =c("crop_harvest_kg_per_year",
+                                                       "crop_consumed_kg_per_year",
+                                                       "crop_sold_kg_per_year",
+                                                       "crop_income_per_year",
+                                                       "crop_price"),
+                                    types = c("num","num","num","num","num"))
+
+    save_data_set_to_db(data = crop_data$crop_harvest_kg_per_year,
+                        data_type = "cropData",
+                        database = opt$dataBase,
+                        url = "mongodb://localhost",
+                        projectID=project_name,
+                        formID=form_name)
+}
 
 #Livestock Calculaions
-rhomis_data <- livestock_calculations_all(rhomis_data,
-                                          livestock_weights_names = livestock_weights$animal,
-                                          livestock_weights_conversions = livestock_weights$weight_kg,
-                                          eggs_amount_units_all = eggs_amount_units$unit,
-                                          eggs_amount_unit_conversions_all = eggs_amount_units$conversion_factor,
-                                          eggs_price_time_units_all = eggs_price_time_units$unit,
-                                          eggs_price_time_unit_conversions_all = eggs_price_time_units$conversion_factor,
-                                          honey_amount_units_all = honey_amount_units$units,
-                                          honey_amount_unit_conversions_all = honey_amount_units$conversion_factors,
-                                          milk_amount_units_all = milk_amount_units$unit,
-                                          milk_amount_unit_conversions_all = milk_amount_units$conversion_factor,
-                                          milk_price_time_units_all = milk_price_time_units$unit,
-                                          milk_price_time_unit_conversions_all = milk_price_time_units$conversion_factor)
+if ("livestock" %in% modules_used$module_name)
+{
+    rhomis_data <- livestock_calculations_all(rhomis_data,
+                                              livestock_weights_names = livestock_weights$animal,
+                                              livestock_weights_conversions = livestock_weights$weight_kg,
+                                              eggs_amount_units_all = eggs_amount_units$unit,
+                                              eggs_amount_unit_conversions_all = eggs_amount_units$conversion_factor,
+                                              eggs_price_time_units_all = eggs_price_time_units$unit,
+                                              eggs_price_time_unit_conversions_all = eggs_price_time_units$conversion_factor,
+                                              honey_amount_units_all = honey_amount_units$units,
+                                              honey_amount_unit_conversions_all = honey_amount_units$conversion_factors,
+                                              milk_amount_units_all = milk_amount_units$unit,
+                                              milk_amount_unit_conversions_all = milk_amount_units$conversion_factor,
+                                              milk_price_time_units_all = milk_price_time_units$unit,
+                                              milk_price_time_unit_conversions_all = milk_price_time_units$conversion_factor)
 
 
+    livestock_data <- map_to_wide_format(data = rhomis_data,
+                                         name_column = "livestock_name",
+                                         column_prefixes =c("livestock_sold",
+                                                            "livestock_sale_income",
+                                                            "livestock_price_per_animal",
 
-# Total Income Calculations
-crop_income <- total_crop_income(rhomis_data)
-livestock_income <- total_livestock_income(rhomis_data)
-total_and_off_farm_income <- total_and_off_farm_incomes(rhomis_data,
-                                                        total_crop_income = crop_income,
-                                                        total_livestock_income = livestock_income)
-total_income <- total_and_off_farm_income$total_income
-off_farm_income <- total_and_off_farm_income$off_farm_income
+                                                            "meat_kg_per_year",
+                                                            "meat_consumed_kg_per_year",
+                                                            "meat_sold_kg_per_year",
+                                                            "meat_sold_income",
+                                                            "meat_price_per_kg",
 
-rhomis_data <- gendered_off_farm_income_split(rhomis_data)
+                                                            "milk_collected_litres_per_year",
+                                                            "milk_consumed_litres_per_year",
+                                                            "milk_sold_litres_per_year",
+                                                            "milk_sold_income_per_year",
+                                                            "milk_price_per_litre",
 
-
-# Extra Outputs
-
-crop_prefixes <- c("crop_harvest_kg_per_year",
-                   "crop_consumed_kg_per_year",
-                   "crop_sold_kg_per_year",
-                   "crop_income_per_year",
-                   "crop_price"
-)
-data_types <- c("num",
-                "num",
-                "num",
-                "num",
-                "num")
-crop_data <- map_to_wide_format(data = rhomis_data,
-                                name_column = "crop_name",
-                                column_prefixes =crop_prefixes,
-                                types = data_types)
-
-livestock_prefixes <- c("livestock_sold",
-                        "livestock_sale_income",
-                        "livestock_price_per_animal",
-                        
-                        "meat_kg_per_year",
-                        "meat_consumed_kg_per_year",
-                        "meat_sold_kg_per_year",
-                        "meat_sold_income",
-                        "meat_price_per_kg",
-                        
-                        "milk_collected_litres_per_year",
-                        "milk_consumed_litres_per_year",
-                        "milk_sold_litres_per_year",
-                        "milk_sold_income_per_year",
-                        "milk_price_per_litre",
-                        
-                        "eggs_collected_kg_per_year",
-                        "eggs_consumed_kg_per_year",
-                        "eggs_sold_kg_per_year",
-                        "eggs_income_per_year",
-                        "eggs_price_per_kg")
+                                                            "eggs_collected_kg_per_year",
+                                                            "eggs_consumed_kg_per_year",
+                                                            "eggs_sold_kg_per_year",
+                                                            "eggs_income_per_year",
+                                                            "eggs_price_per_kg"),
+                                         types = c("num","num","num","num","num","num","num","num", "num","num","num","num","num","num","num","num","num","num"))
 
 
-data_types <- c("num",
-                "num",
-                "num",
-                
-                "num",
-                "num",
-                "num",
-                "num",
-                "num",
-                
-                "num",
-                "num",
-                "num",
-                "num",
-                "num",
-                
-                "num",
-                "num",
-                "num",
-                "num",
-                "num")
+    livestock_sold <- map_to_wide_format(rhomis_data,"livestock_name","livestock_sold",types = "num")
+    save_data_set_to_db(data = livestock_sold$livestock_sold,
+                        data_type = "livestockData",
+                        database = opt$dataBase,
+                        url = "mongodb://localhost",
+                        projectID=project_name,
+                        formID=form_name)
+}
+# Totals
+if ("livestock" %in% modules_used$module_name & "crops" %in% modules_used$module_name)
+{
+    indicator_data$crop_income <- total_crop_income(rhomis_data)
+    indicator_data$livestock_income <- total_livestock_income(rhomis_data)
+}
 
-livestock_data <- map_to_wide_format(data = rhomis_data,
-                                     name_column = "livestock_name",
-                                     column_prefixes =livestock_prefixes,
-                                     types = data_types)
+if(!is.null( indicator_data$crop_income) & !is.null(indicator_data$livestock_income) & ("off_farm_income" %in% modules_used$module_name | "off_farm_incomes" %in% modules_used$module_name ))
+{
+    total_and_off_farm_income <- total_and_off_farm_incomes(rhomis_data,
+                                                            total_crop_income = indicator_data$crop_income,
+                                                            total_livestock_income = indicator_data$livestock_income)
+    indicator_data$total_income <- total_and_off_farm_income$total_income
+    indicator_data$off_farm_income <- total_and_off_farm_income$off_farm_income
 
-# off_farm_prefixes <- c("")
-# data_types <- c("")
-#
-# off_farm_data <- map_to_wide_format(data = rhomis_data,
-#                                      name_column = "offfarm_income_name",
-#                                      column_prefixes =off_farm_prefixes,
-#                                      types = data_types)
+    rhomis_data <- gendered_off_farm_income_split(rhomis_data)
+}
 
+if("off_farm_income" %in% modules_used$module_name | "off_farm_incomes" %in% modules_used$module_name ){
 
+    off_farm_prefixes <- c("offfarm_year_round", "offfarm_month","offfarm_who_control_revenue")
+    data_types <- c("chr", "chr","chr")
 
-
-# write_new_collection(data_to_write = rhomis_data,
-#                      collection = "processedData",
-#                      database = "rhomis",
-#                      url = "mongodb://localhost")
+    off_farm_data <- map_to_wide_format(data = rhomis_data,
+                                        name_column = "offfarm_income_name",
+                                        column_prefixes =off_farm_prefixes,
+                                        types = data_types)
 
 
+}
+
+save_data_set_to_db(data = rhomis_data,
+                    data_type = "processedData",
+                    database = opt$dataBase,
+                    url = "mongodb://localhost",
+                    projectID=project_name,
+                    formID=form_name)
+
+save_data_set_to_db(data = indicator_data,
+                    data_type = "indicatorData",
+                    database = opt$dataBase,
+                    url = "mongodb://localhost",
+                    projectID=project_name,
+                    formID=form_name)
 
 
-
-#---------------------------------------
-indicator_data <- tibble::as_tibble((list(hh_size_members=hh_size_members,
-                                          hh_size_MAE=hh_size_MAE,
-                                          household_type=household_type,
-                                          head_education_level=head_education_level,
-                                          worst_food_security_month=worst_food_security_month,
-                                          best_food_security_month=best_food_security_month,
-                                          
-                                          crop_income=crop_income,
-                                          livestock_income=livestock_income,
-                                          total_income=total_income,
-                                          off_farm_income=off_farm_income)))
-indicator_data <- tibble::as_tibble(cbind(indicator_data,food_security,hdds_data,land_sizes))
-
-add_data_to_project_list(data = rhomis_data,
-                         collection = "processedData",
-                         database = opt$dataBase,
-                         url = "mongodb://localhost",
-                         overwrite=T,
-                         projectID=project_name,
-                         formID=form_name)
-
-add_data_to_project_list(data = indicator_data,
-                         collection = "indicatorData",
-                         database = opt$dataBase,
-                         url = "mongodb://localhost",
-                         overwrite=T,
-                         projectID=project_name,
-                         formID=form_name)
-
-crop_harvested <- map_to_wide_format(rhomis_data,"crop_name","crop_harvest_kg_per_year",types = "num")
-add_data_to_project_list(data = crop_harvested$crop_harvest_kg_per_year,
-                         collection = "cropData",
-                         database = opt$dataBase,
-                         url = "mongodb://localhost",
-                         overwrite=T,
-                         projectID=project_name,
-                         formID=form_name)
-
-livestock_sold <- map_to_wide_format(rhomis_data,"livestock_name","livestock_sold",types = "num")
-add_data_to_project_list(data = livestock_sold$livestock_sold,
-                         collection = "livestockData",
-                         database = opt$dataBase,
-                         url = "mongodb://localhost",
-                         overwrite=T,
-                         projectID=project_name,
-                         formID=form_name)
-
-
-adding_project_to_list(database = opt$dataBase,
-                       url = "mongodb://localhost",
-                       projectID=project_name,
-                       formID=form_name)
-
-
-# survey_builder_metadata <- get_survey_builder_projects(survey_builder_url,
-#                                                        survey_builder_access_token)
-#
-
-#metadata <- data.frame(list())
-
-# add_data_to_project_list(data = survey_builder_metadata,
-#                          collection = "metaData",
-#                          database = "rhomis",
-#                          url = "mongodb://localhost",
-#                          overwrite=T,
-#                          projectID=project_name,
-#                          formID=form_name)
-
-
+# adding_project_to_list(database = opt$dataBase,
+#                        url = "mongodb://localhost",
+#                        projectID=project_name,
+#                        formID=form_name)
 
 # Finishing whole process
 write("Success from Rscript", stdout())
