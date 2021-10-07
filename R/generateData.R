@@ -171,7 +171,6 @@ projects <-get_projects(central_url,
 projectID <- projects$id[projects$name==project_name]
 
 
-
 # Get central formID
 forms <- get_forms(central_url,
                    central_email,
@@ -179,23 +178,24 @@ forms <- get_forms(central_url,
                    projectID)
 formID <- forms$xmlFormId[forms$name==form_name]
 
-
-xls_file_path <- tempfile(fileext = ".xlsx")
-central_form <- rhomis::get_xls_form(
+form_destination <- tempfile(fileext=".xls")
+xls_form <- rhomis::get_xls_form(
   central_url=central_url,
   central_email=central_email,
   central_password=central_password,
   projectID=projectID,
   formID=formID,
-  version = 1,file_destination = xls_file_path,delete = F
+  # file_destination=form_destination,
+  form_version = 1 
 )
+
 
 # Get number of responses to generate
 number_of_responses <- opt$numberOfResponses
 
 for (response_index in 1:number_of_responses)
 {
-mock_response <- rhomis::generate_mock_response(survey_path=xls_file_path)
+mock_response <- rhomis::generate_mock_response(survey = xls_form$survey, choices=xls_form$choices, metadata=xls_form$settings)
 mock_response <- gsub(">\n",">\r\n",mock_response, fixed = T)
 
 submit_xml_data(mock_response,
@@ -207,5 +207,4 @@ submit_xml_data(mock_response,
 }
 
 # Delete the xls file
-unlink(xls_file_path)
 write("Success from Rscript", stdout())

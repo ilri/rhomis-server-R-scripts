@@ -192,7 +192,7 @@ central_form <- rhomis::get_xls_form(
     central_password=central_password,
     projectID=projectID,
     formID=formID,
-    version = 1
+    form_version = 1
 )
 
 #### Identifying the modules uses in the survey
