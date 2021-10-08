@@ -55,6 +55,7 @@ if (interactive()){
   opt <- list()
   opt$projectName <- "test_project_from_server"
   opt$formName <- "RHoMIS 1.6"
+  opt$formVersion <- 1
   opt$numberOfResponses <- 10
 }
 
@@ -103,19 +104,21 @@ if (!interactive()){
   option_list <- list(
     optparse::make_option(opt_str = c( "--projectName"),
                           type = "character",
-                          # default = "hello",
                           help="The name for the project you would like to process on ODK central",
                           metavar="character"),
     optparse::make_option(opt_str = c("--formName"),
                           type = "character",
-                          # default = "world",
                           help="The name of the form you would like to process on ODK central",
                           metavar="character"),
+    optparse::make_option(opt_str = c("--formVersion"),
+                          type = "character",
+                          help="The version of the form which you would like",
+                          metavar="character"),
+
     optparse::make_option(opt_str = c("--numberOfResponses"),
                           type = "integer",
-                          # default = "world",
                           help="The number of responses you would like to generate and submit to ODK central",
-                          metavar="character")
+                          metavar="character")    
   )
   
   # Extracting arguments
@@ -177,8 +180,7 @@ forms <- get_forms(central_url,
                    central_password,
                    projectID)
 formID <- forms$xmlFormId[forms$name==form_name]
-
-form_destination <- tempfile(fileext=".xls")
+print(opt$formVersion)
 xls_form <- rhomis::get_xls_form(
   central_url=central_url,
   central_email=central_email,
@@ -186,7 +188,7 @@ xls_form <- rhomis::get_xls_form(
   projectID=projectID,
   formID=formID,
   # file_destination=form_destination,
-  form_version = 1 
+  form_version = opt$formVersion
 )
 
 

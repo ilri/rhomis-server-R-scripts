@@ -53,6 +53,7 @@ if (interactive()){
   opt$projectName <- "test_project_from_node"
   opt$formName <- "RHoMIS 1.6"
   opt$dataBase <- "rhomis-data-dev"
+  opt$formVersion <- 1
   
 }
 
@@ -108,6 +109,12 @@ if (!interactive()){
                           # default = "world",
                           help="The name of the form you would like to process on ODK central",
                           metavar="character"),
+    optparse::make_option(opt_str = c("--formVersion"),
+                          type = "character",
+                          # default = "world",
+                          help="The version of the form you would like to process on ODK central",
+                          metavar="character"),
+
     optparse::make_option(opt_str = c("--dataBase"),
                           type = "character",
                           # default = "world",
@@ -188,13 +195,14 @@ formID <- get_xml_form_id_from_name(form_name,
 # Get form and extract metadata
 central_form <- rhomis::get_xls_form(
     central_url=central_url,
-    central_email=central_email,
-    central_password=central_password,
-    projectID=projectID,
-    formID=formID,
-    form_version = 1
+  central_email=central_email,
+  central_password=central_password,
+  projectID=projectID,
+  formID=formID,
+  # file_destination=form_destination,
+  form_version = opt$formVersion
 )
-
+central_form <- central_form$survey
 #### Identifying the modules uses in the survey
 
 library(tibble)
@@ -216,6 +224,12 @@ if (length(new_survey_modules)>0)
 
     modules_used <- dplyr::bind_rows( rhomis::modules,new_module_tibble)
 }
+if (length(new_survey_modules)==0)
+{
+    modules_used <- rhomis::modules
+
+}
+
 save_data_set_to_db(data = modules_used,
                          data_type  = "moduleData",
                          database = opt$dataBase,
