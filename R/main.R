@@ -49,10 +49,12 @@ if (interactive()){
   # Setting options for script run interactively.
   # These should be set manually if you are running the script interactively
   opt <- list()
-  opt$projectName <- "test_project_from_node"
-  opt$formName <- "RHoMIS 1.6"
-  opt$dataBase <- "rhomis-data-dev"
-  opt$formVersion <- 1
+  opt$projectName <- FALSE
+  opt$formName <- FALSE
+  opt$dataBase <- FALSE
+  opt$formVersion <- FALSE
+    opt$numberOfResponses <- FALSE
+
   
 }
 
@@ -113,12 +115,15 @@ if (!interactive()){
                           # default = "world",
                           help="The version of the form you would like to process on ODK central",
                           metavar="character"),
-
     optparse::make_option(opt_str = c("--dataBase"),
                           type = "character",
                           # default = "world",
                           help="The database you would like to write to",
-                          metavar="character")
+                          metavar="character"),
+    optparse::make_option(opt_str = c("--numberOfResponses"),
+                          type = "integer",
+                          help="The number of responses you would like to generate and submit to ODK central",
+                          metavar="character")    
   )
   
   # Extracting arguments
@@ -137,10 +142,11 @@ if (!interactive()){
 ####################################################################################################################
 ####################################################################################################################
 ####################################################################################################################
-# DATA PROCESSING
+# EXECUTE SCRIPTS
 ####################################################################################################################
 ####################################################################################################################
 ####################################################################################################################
 ####################################################################################################################
 ####################################################################################################################
 
+source('./R/import_functions.R')
