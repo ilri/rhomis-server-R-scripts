@@ -153,9 +153,9 @@ if (opt$commandType == "test") {
 
 if (opt$commandType == "process") {
   processData(
-    central_url = central_url,
-    central_email = central_email,
-    central_password = central_password,
+    central_url = opt$centralURL,
+    central_email = opt$centralEmail,
+    central_password = opt$centralPassword,
     project_name = opt$projectName,
     form_name = opt$formName,
     form_version = form_version,
@@ -165,9 +165,9 @@ if (opt$commandType == "process") {
 
 if (opt$commandType == "generate") {
   generateData(
-    central_url = central_url,
-    central_email = central_email,
-    central_password = central_password,
+    central_url = opt$centralURL,
+    central_email = opt$centralEmail,
+    central_password = opt$centralPassword,
     project_name = opt$projectName,
     form_name = opt$formName,
     number_of_responses = opt$numberOfResponses

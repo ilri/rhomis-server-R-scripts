@@ -2,7 +2,8 @@ generateData <- function(central_url,
                          central_email,
                          central_password,
                          project_name,
-                         form_name) {
+                         form_name,
+                         number_of_responses) {
 
 
   # Finding project information from the API
