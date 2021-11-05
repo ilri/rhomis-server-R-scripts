@@ -21,7 +21,7 @@ CENTRALPASSWORD=mypassword
 ```
 
 For current RHoMIS setup, the `CENTRALURL` should be `central.rhomis.cgiar.org`. 
-The email and password should match thos of your ODK central account.
+The email and password should match those of your ODK central account.
 
 Finally, if you want to store the results in the database (as is done in the scripts)
 you will need to [install mongodDB community](https://docs.mongodb.com/manual/administration/install-on-linux/).
