@@ -18,6 +18,7 @@
 #' a brief description. In both cases, "path/to/file.R" must reflect where the file is
 #' located on your system
 
+
 ####################################################################################################################
 ####################################################################################################################
 ####################################################################################################################
@@ -78,6 +79,7 @@ if (!interactive()) {
   library(optparse, warn.conflicts = F)
   #' Setting up options for calling this script from
   #' the terminal or the command line
+
   option_list <- list(
     optparse::make_option(
       opt_str = c("--commandType"),
@@ -94,6 +96,10 @@ if (!interactive()) {
     optparse::make_option(
       opt_str = c("--formVersion"),
       help = "The version of the form you would like to process on ODK central",
+    ),
+    optparse::make_option(
+      opt_str = c("--status"),
+      help = 'Whether or not a form is in its "draft" or "finalized" state',
     ),
     optparse::make_option(
       opt_str = c("--dataBase"),
@@ -123,7 +129,7 @@ if (!interactive()) {
 
   if (length(opt) == 0) {
     optparse::print_help(opt_parser)
-    stop("At least one argument must be supplied (input file).n", call. = FALSE)
+    stop("At least one argument must be supplied (input file)\n", call. = FALSE)
   }
 }
 
@@ -140,28 +146,68 @@ if (!interactive()) {
 ####################################################################################################################
 library(rhomis, warn.conflicts = F)
 print(getwd())
-print(opt$commandType)
-
+print(opt)
 # Getting the necessary functions
-source("./R/testRun.R")
-source("./R/generateData.R")
-source("./R/processData.R")
+# source("./R/testRun.R")
+
+
+
 
 if (opt$commandType == "test") {
-  test_run()
+  print("Running test")
+  quit()
 }
+
+if (opt$status == "draft") {
+  draft <- T
+}
+
+if (opt$status == "finalized") {
+  draft <- F
+}
+
+print(draft)
 
 if (opt$commandType == "process") {
   processData(
+    dataSource = "central",
+    outputType = "mongodb",
+    coreOnly = F,
+    moduleSaving = T,
+    extractUnits = F,
+    processDataSet = T,
+    dataFilePath = NULL,
     central_url = opt$centralURL,
     central_email = opt$centralEmail,
     central_password = opt$centralPassword,
     project_name = opt$projectName,
     form_name = opt$formName,
-    form_version = form_version,
-    database = opt$dataBase
+    form_version = opt$formVersion,
+    database = opt$dataBase,
+    draft = draft
   )
 }
+
+if (opt$commandType == "units") {
+  processData(
+    dataSource = "central",
+    outputType = "mongodb",
+    coreOnly = F,
+    moduleSaving = T,
+    extractUnits = T,
+    processDataSet = F,
+    dataFilePath = NULL,
+    central_url = opt$centralURL,
+    central_email = opt$centralEmail,
+    central_password = opt$centralPassword,
+    project_name = opt$projectName,
+    form_name = opt$formName,
+    form_version = opt$formVersion,
+    database = opt$dataBase,
+    draft = draft
+  )
+}
+
 
 if (opt$commandType == "generate") {
   generateData(
@@ -170,6 +216,8 @@ if (opt$commandType == "generate") {
     central_password = opt$centralPassword,
     project_name = opt$projectName,
     form_name = opt$formName,
-    number_of_responses = opt$numberOfResponses
+    form_version = opt$formVersion,
+    number_of_responses = opt$numberOfResponses,
+    draft = draft
   )
 }
